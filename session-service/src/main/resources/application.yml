@@ -1,0 +1,44 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: session-service
+
+  # All datasource config comes from the environment — nothing hardcoded, no secrets committed.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate only validates the mapping against it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: session
+    open-in-view: false
+
+  flyway:
+    schemas: session
+    default-schema: session
+
+# Base URL of Station Service — the real synchronous call target on the start/stop path.
+station:
+  service:
+    url: ${STATION_SERVICE_URL}
+
+# Expose a plain /health endpoint (readiness/liveness) per service.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

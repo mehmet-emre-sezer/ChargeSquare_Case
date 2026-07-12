@@ -1,0 +1,39 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: station-service
+
+  # All datasource config comes from the environment — nothing hardcoded, no secrets committed.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate only validates the mapping against it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: station
+    open-in-view: false
+
+  flyway:
+    schemas: station
+    default-schema: station
+
+# Expose a plain /health endpoint (readiness/liveness) per service.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
