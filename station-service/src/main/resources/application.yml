@@ -5,7 +5,7 @@ spring:
   application:
     name: station-service
 
-  # All datasource config comes from the environment — nothing hardcoded, no secrets committed.
+  # Tüm datasource config ortamdan gelir — hiçbir şey hardcode değil, secret commit'lenmez.
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -13,7 +13,7 @@ spring:
 
   jpa:
     hibernate:
-      # Flyway owns the schema; Hibernate only validates the mapping against it.
+      # Şema Flyway'in sorumluluğunda; Hibernate yalnızca eşlemeyi şemaya karşı doğrular.
       ddl-auto: validate
     properties:
       hibernate:
@@ -24,7 +24,7 @@ spring:
     schemas: station
     default-schema: station
 
-# Expose a plain /health endpoint (readiness/liveness) per service.
+# Her serviste sade bir /health endpoint'i aç (readiness/liveness).
 management:
   endpoints:
     web:

@@ -1,5 +1,5 @@
-# One command to bring up the whole flow: docker compose up --build
-# All config comes from .env (see .env.example). No secrets are baked into images.
+# Tüm akışı tek komutla ayağa kaldır: docker compose up --build
+# Tüm config .env'den gelir (bkz. .env.example). İmajlara hiçbir secret gömülmez.
 
 services:
   db:
@@ -12,7 +12,7 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
-    # Gate dependents on a genuinely-ready DB, not just a started container.
+    # Bağımlıları sadece başlamış değil, gerçekten hazır bir DB'ye bağla.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -22,7 +22,7 @@ services:
   station-service:
     build: ./station-service
     environment:
-      # Station owns the 'station' schema inside the shared database.
+      # Station, paylaşımlı veritabanındaki 'station' şemasına sahip.
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}?currentSchema=station
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -35,11 +35,11 @@ services:
   session-service:
     build: ./session-service
     environment:
-      # Session owns the 'session' schema inside the shared database.
+      # Session, paylaşımlı veritabanındaki 'session' şemasına sahip.
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}?currentSchema=session
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      # Real network call target for the start/stop flow.
+      # Start/stop akışı için gerçek ağ çağrısı hedefi.
       STATION_SERVICE_URL: ${STATION_SERVICE_URL}
     ports:
       - "${SESSION_SERVICE_PORT}:8082"

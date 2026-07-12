@@ -1,9 +1,9 @@
-# Build output
+# Derleme çıktısı
 target/
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
 
-# Environment — never commit real values (only .env.example is tracked)
+# Ortam — gerçek değerler asla commit'lenmez (sadece .env.example takip edilir)
 .env
 
 # IDE
@@ -17,5 +17,5 @@ target/
 # OS
 .DS_Store
 
-# Logs
+# Loglar
 *.log

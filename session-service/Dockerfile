@@ -1,13 +1,13 @@
-# Build stage: compile and package with Maven on JDK 21.
+# Derleme aşaması: JDK 21 üzerinde Maven ile derle ve paketle.
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
-# Cache dependencies first so code changes don't re-download everything.
+# Önce bağımlılıkları önbelleğe al ki kod değişikliğinde hepsi tekrar inmesin.
 COPY pom.xml .
 RUN mvn -q -e -B dependency:go-offline
 COPY src ./src
 RUN mvn -q -e -B clean package -DskipTests
 
-# Run stage: slim JRE with just the built jar.
+# Çalıştırma aşaması: sadece derlenen jar'ı içeren ince JRE.
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar

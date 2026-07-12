@@ -39,7 +39,7 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Schema is created from scratch via migrations, never auto-DDL. -->
+        <!-- Şema sıfırdan migration ile kurulur, asla auto-DDL değil. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
