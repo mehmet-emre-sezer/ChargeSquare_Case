@@ -1,0 +1,9 @@
+# Servislerin okuduğu secret olmayan config. Deployment'lar envFrom ile bunu okur.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chargesquare-config
+data:
+  POSTGRES_DB: chargesquare
+  # Session -> Station senkron çağrı hedefi (k8s Service DNS adı).
+  STATION_SERVICE_URL: "http://station-service:8081"

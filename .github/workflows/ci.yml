@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Java 21'e sabit: testler (Mockito/Byte Buddy) daha yeni JDK'larda kırılabilir.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Station Service — build + test
+        run: mvn -B -f station-service/pom.xml verify
+
+      - name: Session Service — build + test
+        run: mvn -B -f session-service/pom.xml verify
+
+      # İmajları kur (registry'ye push yok — sadece Dockerfile'ların derlendiğini doğrular).
+      - name: Build station-service image
+        run: docker build -t chargesquare/station-service:ci station-service
+
+      - name: Build session-service image
+        run: docker build -t chargesquare/session-service:ci session-service

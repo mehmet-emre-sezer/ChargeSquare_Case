@@ -19,3 +19,7 @@ target/
 
 # Loglar
 *.log
+
+# Dahili planlama/günlük — teslimata dahil değil
+plan.md
+devlog.md

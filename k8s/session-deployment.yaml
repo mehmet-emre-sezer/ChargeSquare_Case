@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: session-service
+  template:
+    metadata:
+      labels:
+        app: session-service
+    spec:
+      containers:
+        - name: session-service
+          image: chargesquare/session-service:latest
+          ports:
+            - containerPort: 8082
+          env:
+            # Session 'session' şemasına sahip; kimlik bilgileri Secret'tan gelir.
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres:5432/chargesquare?currentSchema=session"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: POSTGRES_PASSWORD
+            # Station'a giden senkron çağrı hedefi ConfigMap'ten gelir.
+            - name: STATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: chargesquare-config
+                  key: STATION_SERVICE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 10

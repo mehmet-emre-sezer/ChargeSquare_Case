@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: station-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: station-service
+  template:
+    metadata:
+      labels:
+        app: station-service
+    spec:
+      containers:
+        - name: station-service
+          image: chargesquare/station-service:latest
+          ports:
+            - containerPort: 8081
+          env:
+            # Station 'station' şemasına sahip; kimlik bilgileri Secret'tan gelir.
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres:5432/chargesquare?currentSchema=station"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
