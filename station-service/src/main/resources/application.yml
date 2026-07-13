@@ -5,11 +5,9 @@ spring:
   application:
     name: station-service
 
-  # Tüm datasource config ortamdan gelir — hiçbir şey hardcode değil, secret commit'lenmez.
-  datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+  # Datasource ortamdan gelir: SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD env değişkenleri
+  # Spring Boot tarafından otomatik bağlanır (relaxed binding). Hardcode/secret yok.
+  # Testlerde bağlantıyı gömülü Postgres (zonky) sağlar.
 
   jpa:
     hibernate:
