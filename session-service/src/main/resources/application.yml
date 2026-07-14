@@ -27,6 +27,21 @@ station:
   service:
     url: ${STATION_SERVICE_URL}
 
+# JWT: imzalama anahtarı ortamdan gelir (secret). İki servis aynı anahtarı paylaşır.
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-minutes: 60
+
+# Demo kullanıcılar — gerçek kullanıcı deposu yerine. Şifreler DEMO'dur (README'de belgeli).
+demo:
+  users:
+    - username: admin
+      password: admin123
+      role: ADMIN
+    - username: viewer
+      password: viewer123
+      role: VIEWER
+
 # Her serviste sade bir /health endpoint'i aç (readiness/liveness).
 management:
   endpoints:

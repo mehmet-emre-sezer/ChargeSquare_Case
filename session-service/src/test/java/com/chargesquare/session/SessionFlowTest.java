@@ -11,14 +11,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.chargesquare.session.client.ConnectorSnapshot;
 import com.chargesquare.session.client.StationClient;
+import com.chargesquare.session.security.JwtService;
 import com.jayway.jsonpath.JsonPath;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
 import java.math.BigDecimal;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,31 +29,44 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Start -> stop yaşam döngüsünü ve guard'ları gömülü gerçek Postgres'e karşı, controller
- * katmanından uçtan uca sınar. Tek dış bağımlılık olan Station Service mock'lanır. Her test
- * transaction'da koşar ve sonunda geri alınır; böylece testler birbirinden bağımsız kalır.
+ * katmanından uçtan uca sınar. Uçlar artık korumalı olduğu için isteklere ADMIN token eklenir.
+ * Tek dış bağımlılık olan Station Service mock'lanır. Her test transaction'da koşup geri alınır.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @AutoConfigureEmbeddedDatabase(provider = AutoConfigureEmbeddedDatabase.DatabaseProvider.ZONKY)
 @Transactional
-@TestPropertySource(properties = "station.service.url=http://localhost:8081")
+@TestPropertySource(properties = {
+        "station.service.url=http://localhost:8081",
+        "jwt.secret=test-secret-key-that-is-long-enough-0123456789"
+})
 class SessionFlowTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private JwtService jwtService;
+
     @MockBean
     private StationClient stationClient;
+
+    private String adminAuth;
+
+    @BeforeEach
+    void setUp() {
+        adminAuth = "Bearer " + jwtService.issueToken("admin", "ADMIN");
+    }
 
     private void stubAvailableConnector() {
         when(stationClient.getConnector(anyLong())).thenReturn(
                 new ConnectorSnapshot("AVAILABLE",
                         new ConnectorSnapshot.TariffView(new BigDecimal("8.50"), new BigDecimal("2.00"), "TRY")));
-        // occupy/release void -> Mockito varsayılan olarak no-op.
     }
 
     private long startSession() throws Exception {
         String body = mockMvc.perform(post("/sessions")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":7,\"connectorId\":10}"))
                 .andExpect(status().isCreated())
@@ -67,6 +83,7 @@ class SessionFlowTest {
 
         // Seed cüzdan 500.00; 12.5 kWh -> 108.25 -> bakiye 391.75.
         mockMvc.perform(post("/sessions/" + sessionId + "/stop")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"energyKwh\":12.5}"))
                 .andExpect(status().isOk())
@@ -74,7 +91,8 @@ class SessionFlowTest {
                 .andExpect(jsonPath("$.cost").value(108.25))
                 .andExpect(jsonPath("$.walletBalanceAfter").value(391.75));
 
-        mockMvc.perform(get("/sessions/" + sessionId))
+        mockMvc.perform(get("/sessions/" + sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.cost").value(108.25));
@@ -86,12 +104,14 @@ class SessionFlowTest {
         long sessionId = startSession();
 
         mockMvc.perform(post("/sessions/" + sessionId + "/stop")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"energyKwh\":12.5}"))
                 .andExpect(status().isOk());
 
         // İkinci stop artık ACTIVE olmadığı için reddedilir; ikinci kez faturalanmaz.
         mockMvc.perform(post("/sessions/" + sessionId + "/stop")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"energyKwh\":5}"))
                 .andExpect(status().isConflict())
@@ -105,18 +125,19 @@ class SessionFlowTest {
                         new ConnectorSnapshot.TariffView(new BigDecimal("8.50"), new BigDecimal("2.00"), "TRY")));
 
         mockMvc.perform(post("/sessions")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":7,\"connectorId\":10}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CONNECTOR_OCCUPIED"));
 
-        // Occupy hiç çağrılmadı -> connector'a dokunulmadı ve oturum yaratılmadı.
         verify(stationClient, never()).occupy(anyLong());
     }
 
     @Test
     void startMissingUserId_returns400() throws Exception {
         mockMvc.perform(post("/sessions")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"connectorId\":10}"))
                 .andExpect(status().isBadRequest())

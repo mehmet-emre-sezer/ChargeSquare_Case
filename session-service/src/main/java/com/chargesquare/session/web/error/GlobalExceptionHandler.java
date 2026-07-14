@@ -1,5 +1,6 @@
 package com.chargesquare.session.web.error;
 
+import com.chargesquare.session.auth.InvalidCredentialsException;
 import com.chargesquare.session.client.ConnectorNotAvailableException;
 import com.chargesquare.session.client.ConnectorNotFoundException;
 import com.chargesquare.session.client.StationUnavailableException;
@@ -53,6 +54,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleSessionNotActive(SessionNotActiveException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiError("SESSION_NOT_ACTIVE", ex.getMessage()));
+    }
+
+    // Hatalı kullanıcı adı/şifre -> 401.
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiError("INVALID_CREDENTIALS", ex.getMessage()));
     }
 
     // Station'a ulaşılamıyor: fail-fast, 503.
