@@ -198,13 +198,36 @@ Bunu canlı bir cluster üzerinde çalıştıramadım; manifestleri geçerli YAM
 
 ## Ne kodlandı, ne yalnızca yazıya döküldü
 
-**Kodlandı:** tüm başlat → durdur → faturala → tahsil et akışı, bütün durum kontrolleri, kayan noktadan kaçınan maliyet hesabı, gerçek Session → Station ağ çağrısı, gerçek veritabanı kalıcılığı + başlangıç verisi, JWT tabanlı kimlik doğrulama + rol tabanlı erişim (Stage 2 backend), testler, Dockerfile'lar + Compose, Kubernetes manifestleri ve CI.
+**Kodlandı:** tüm başlat → durdur → faturala → tahsil et akışı, bütün durum kontrolleri, kayan noktadan kaçınan maliyet hesabı, gerçek Session → Station ağ çağrısı, gerçek veritabanı kalıcılığı + başlangıç verisi, JWT tabanlı kimlik doğrulama + rol tabanlı erişim (Stage 2 backend), React yönetim paneli (Stage 2 frontend), testler, Dockerfile'lar + Compose, Kubernetes manifestleri ve CI.
 
 **Yalnızca yazıya döküldü** ([DESIGN.md](DESIGN.md) içinde — case metninin bizden *çözmemizi değil, üzerine düşünüp anlatmamızı* istediği asıl zor dağıtık sistem konuları): tekrar denemelerde idempotency ve kilitli kalan connector'ın kurtarılması.
 
 ## Opsiyonel / Stage 2
 
-Stage 2'nin **backend güvenlik tarafı implement edildi**: JWT login, VIEWER/ADMIN rolleri backend'de zorunlu, korumalı uçlar ve servisler arası ADMIN service token (yukarıdaki [Kimlik doğrulama](#kimlik-doğrulama)). **React yönetim paneli yazılmadı** — Stage 2'nin frontend kısmı kapsam dışı bırakıldı. Tam güvenlik modeli, roller, secret yönetimi ve denetim (audit) log planı [DESIGN.md](DESIGN.md)'in **Güvenlik** bölümündedir.
+Stage 2'nin **tamamı yapıldı** — hem backend güvenliği hem de yönetim paneli:
+- **Backend:** JWT login, VIEWER/ADMIN rolleri backend'de zorunlu, korumalı uçlar, servisler arası ADMIN service token ve config tabanlı CORS (yukarıdaki [Kimlik doğrulama](#kimlik-doğrulama)).
+- **Panel:** [`web/`](web/) altında küçük bir React (Vite) paneli — aşağıdaki [Panel](#panel-web) bölümü.
+
+Tam güvenlik modeli, roller, secret yönetimi ve denetim (audit) log planı [DESIGN.md](DESIGN.md)'in **Güvenlik** bölümündedir.
+
+---
+
+## Panel (web)
+
+Operasyon ekibi için sade bir React paneli — 4 ekran, abartısız. Backend çalışırken:
+
+```bash
+cd web
+npm install
+npm run dev            # http://localhost:5173
+```
+
+- **Login** — demo kullanıcılarla giriş (bkz. [Kimlik doğrulama](#kimlik-doğrulama)).
+- **Connector'lar** — istasyonun connector'ları: durum + tarife (salt-okunur).
+- **Oturumlar** — oturum listesi (durum + maliyet); satıra tıkla → makbuz (enerji, maliyet, zaman, kalan bakiye).
+- **Rol-korumalı aksiyon** — ADMIN aktif bir oturumu durdurabilir; VIEWER'da buton **pasiftir**. Yetki hem arayüzde hem backend'de (403) zorlanır.
+
+Panelin backend adresleri `web/.env.example`'daki `VITE_STATION_URL` / `VITE_SESSION_URL` ile ayarlanır (varsayılan `localhost:8081` / `8082`).
 
 ---
 
@@ -218,6 +241,7 @@ Stage 2'nin **backend güvenlik tarafı implement edildi**: JWT login, VIEWER/AD
 ```
 station-service/   # istasyonlar, connector'lar, tarifeler (:8081)
 session-service/   # oturumlar, cüzdan, başlat/durdur yaşam döngüsü (:8082)
+web/               # React (Vite) operasyon paneli (:5173)
 k8s/               # Kubernetes manifestleri
 diagrams/          # Mermaid diyagramları (mimari + akışlar)
 docker-compose.yml # tek komutla yerel çalıştırma

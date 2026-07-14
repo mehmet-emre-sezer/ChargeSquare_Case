@@ -240,3 +240,50 @@ body {
 .table tr.clickable:hover td {
   background: #fafbfc;
 }
+
+/* --- Modal + makbuz --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 30, 40, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.receipt {
+  margin: 0;
+}
+.receipt > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.receipt > div:last-child {
+  border-bottom: none;
+}
+.receipt dt {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.receipt dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}

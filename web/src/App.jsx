@@ -1,21 +1,26 @@
+import { useState } from 'react'
 import { useAuth } from './auth/AuthContext.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import Layout from './components/Layout.jsx'
+import ConnectorsPage from './pages/ConnectorsPage.jsx'
+import SessionsPage from './pages/SessionsPage.jsx'
 
-// Kimlik doğrulanmamışsa login; doğrulanmışsa panel iskeleti.
-// İstasyon ve oturum ekranları Parça C'de navigasyona eklenir.
-const NAV = []
+const NAV = [
+  { key: 'connectors', label: "Connector'lar" },
+  { key: 'sessions', label: 'Oturumlar' },
+]
 
 export default function App() {
   const { isAuthenticated } = useAuth()
+  const [page, setPage] = useState('connectors')
 
   if (!isAuthenticated) {
     return <LoginPage />
   }
 
   return (
-    <Layout nav={NAV} active={null} onNavigate={() => {}}>
-      <p className="state">Giriş başarılı. İstasyon ve oturum ekranları hazırlanıyor…</p>
+    <Layout nav={NAV} active={page} onNavigate={setPage}>
+      {page === 'connectors' ? <ConnectorsPage /> : <SessionsPage />}
     </Layout>
   )
 }

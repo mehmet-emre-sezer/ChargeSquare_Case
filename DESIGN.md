@@ -61,9 +61,9 @@ Bu dilimde, case metninin istediği gibi, kurtarmayı kodlamak yerine anlatıyor
 
 ---
 
-## Güvenlik (Stage 2 — backend implement edildi, panel yazılmadı)
+## Güvenlik (Stage 2 — backend + panel yapıldı)
 
-Stage 2'nin backend güvenlik tarafını **kodladım**; React yönetim panelini yazmadım. Aşağıdaki model hem uygulanan davranışı hem de arkasındaki gerekçeyi anlatır.
+Stage 2'nin hem backend güvenliğini hem de yönetim panelini **kodladım**. Aşağıdaki model hem uygulanan davranışı hem de arkasındaki gerekçeyi anlatır.
 
 **Kimlik doğrulama.** `POST /auth/login` ucu, doğru kimlik bilgisinde bir **JWT** üretir; bu token `Authorization: Bearer <token>` ile taşınır ve her iki serviste de doğrulanır. Demo kullanıcılar (`admin`/`admin123` → ADMIN, `viewer`/`viewer123` → VIEWER) config'ten gelir ve şifreleri BCrypt ile hash'lenir; gerçek kimlik bilgisi depoya konmaz. Token, kullanıcı ve rol bilgisini taşır ve `JWT_SECRET` ortam değişkeninden gelen paylaşılan HMAC anahtarıyla imzalanır — böylece her servis token'ı ekstra ağ çağrısı olmadan yerel doğrular.
 
@@ -77,7 +77,7 @@ Stage 2'nin backend güvenlik tarafını **kodladım**; React yönetim panelini 
 
 Roller **sunucuda** kontrol edilir, buton gizleyerek değil. Kimliği doğrulanmamış istek `401`, kimliği doğrulanmış ama yetkisi olmayan istek `403` alır. Rol, token'ın içinde durur (hızlıdır, her istekte ayrı sorgu gerektirmez); bunun bedeli, bir rolü geri almanın kısa token ömrü veya küçük bir kara liste gerektirmesidir — bu ölçekte kabul edilebilir. (Cüzdana yükleme ucu bu dilimde yazılmadı; eklendiğinde tablodaki gibi ADMIN altına girer.)
 
-**API koruması.** Okuma uçları geçerli bir token ister; yazma uçları (start/stop) ve dahili `occupy`/`release` yolu ayrıca `ADMIN` ister ve anonim ya da salt-görüntüleyici çağrıları reddeder — hepsi uygulandı ve testlerle doğrulandı. Backend her girdiyi kendisi doğrular; bir arayüz eklendiğinde bile client-side doğrulamaya güvenilmez, çünkü arayüz atlanıp API'ye doğrudan istek atılabilir. Bir SPA eklendiğinde CORS yalnızca panelin origin'ine açılacak şekilde sınırlanır (henüz panel yok).
+**API koruması.** Okuma uçları geçerli bir token ister; yazma uçları (start/stop) ve dahili `occupy`/`release` yolu ayrıca `ADMIN` ister ve anonim ya da salt-görüntüleyici çağrıları reddeder — hepsi uygulandı ve testlerle doğrulandı. Backend her girdiyi kendisi doğrular; panel de girdiyi doğrulasa bile ona güvenilmez, çünkü arayüz atlanıp API'ye doğrudan istek atılabilir (panelde VIEWER için pasifleşen "Durdur" butonu backend'de ayrıca 403 ile korunur). CORS, config tabanlı olarak yalnızca panelin origin'ine (`CORS_ALLOWED_ORIGINS`, varsayılan `http://localhost:5173`) açılacak şekilde uygulandı.
 
 **Secret yönetimi.** JWT imzalama anahtarı ve veritabanı kimlik bilgileri ortamdan/konfigürasyondan (bir k8s `Secret`) gelir, asla depodan değil — depodaki [`k8s/secret.yaml`](k8s/secret.yaml) yalnızca örnek değerler içerir. Gerçek bir kurulumda bunlar bir secret yöneticisinden gelir (Sealed Secrets / External Secrets / bir bulut KMS).
 
@@ -88,5 +88,7 @@ Roller **sunucuda** kontrol edilir, buton gizleyerek değil. Kimliği doğrulanm
 ```
 
 Bir operasyon paneli için bu önemlidir, çünkü başlat/durdur ve cüzdan işlemleri hem para hem de donanım hareket ettirir; sonradan "bunu kim, ne zaman yaptı" sorusuna cevap verebilmek gerekir.
+
+**Panel token saklama.** Panel token'ı `localStorage`'da tutar — basitlik için tercih edildi ve sayfa yenilemede oturum korunur. Trade-off: `localStorage` XSS'e açıktır (script token'ı okuyabilir); `httpOnly` cookie XSS'i kapatır ama CSRF önlemi gerektirir; en güvenlisi token'ı yalnızca bellekte tutmaktır ama yenilemede oturum kaybolur. Bu ölçekte `localStorage` kabul edilebilir; gerçek sistemde kısa ömürlü token + yenileme akışıyla birlikte cookie'ye geçerdim.
 
 **Sonradan ekleyeceklerim:** yenileme (refresh) token'ları, OAuth/SSO, şifre sıfırlama, girişte rate limiting ve gerçek bir kullanıcı deposu. Modeli göstermek için hiçbiri şart değil; hepsi bu JWT + RBAC temelinin üzerine rahatça eklenir.
