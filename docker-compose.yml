@@ -26,6 +26,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}?currentSchema=station
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # JWT doğrulama anahtarı (Session ile paylaşılan aynı secret).
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "${STATION_SERVICE_PORT}:8081"
     depends_on:

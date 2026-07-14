@@ -22,6 +22,10 @@ spring:
     schemas: station
     default-schema: station
 
+# JWT doğrulama anahtarı — Session Service ile aynı paylaşılan secret (ortamdan gelir).
+jwt:
+  secret: ${JWT_SECRET}
+
 # Her serviste sade bir /health endpoint'i aç (readiness/liveness).
 management:
   endpoints:

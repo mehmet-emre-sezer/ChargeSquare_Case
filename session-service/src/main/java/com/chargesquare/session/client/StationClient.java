@@ -1,5 +1,7 @@
 package com.chargesquare.session.client;
 
+import com.chargesquare.session.security.JwtService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -7,14 +9,24 @@ import org.springframework.web.client.RestClientException;
 /**
  * Station Service'e yapılan senkron REST çağrılarını tek bir yerde toplar.
  * HTTP detaylarını domain'den gizler ve Station yanıtlarını anlamlı exception'lara çevirir.
+ * Station'ın korumalı uçlarına (occupy/release) erişebilmek için her çağrıya ADMIN rolünde
+ * bir servis token'ı ekler — RBAC tablosundaki "servis-servis" satırı.
  */
 @Component
 public class StationClient {
 
-    private final RestClient restClient;
+    private static final String SERVICE_SUBJECT = "session-service";
 
-    public StationClient(RestClient stationRestClient) {
+    private final RestClient restClient;
+    private final JwtService jwtService;
+
+    public StationClient(RestClient stationRestClient, JwtService jwtService) {
         this.restClient = stationRestClient;
+        this.jwtService = jwtService;
+    }
+
+    private String serviceToken() {
+        return "Bearer " + jwtService.issueToken(SERVICE_SUBJECT, "ADMIN");
     }
 
     /** Connector'ın status'ünü ve tarifesini okur. Start yolundaki gerçek senkron çağrı. */
@@ -22,6 +34,7 @@ public class StationClient {
         try {
             return restClient.get()
                     .uri("/connectors/{id}", connectorId)
+                    .header(HttpHeaders.AUTHORIZATION, serviceToken())
                     .retrieve()
                     .onStatus(status -> status.value() == 404,
                             (req, res) -> { throw new ConnectorNotFoundException(connectorId); })
@@ -38,6 +51,7 @@ public class StationClient {
         try {
             restClient.post()
                     .uri("/connectors/{id}/occupy", connectorId)
+                    .header(HttpHeaders.AUTHORIZATION, serviceToken())
                     .retrieve()
                     .onStatus(status -> status.value() == 404,
                             (req, res) -> { throw new ConnectorNotFoundException(connectorId); })
@@ -56,6 +70,7 @@ public class StationClient {
         try {
             restClient.post()
                     .uri("/connectors/{id}/release", connectorId)
+                    .header(HttpHeaders.AUTHORIZATION, serviceToken())
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e) {
