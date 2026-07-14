@@ -1,0 +1,242 @@
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --border: #e2e6ea;
+  --text: #1c2733;
+  --muted: #6b7885;
+  --primary: #1f7a5a;
+  --primary-hover: #196549;
+  --danger: #b23b3b;
+  --available: #1f7a5a;
+  --occupied: #b26a1f;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.04);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* --- Ortak parçalar --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  font: inherit;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn--sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+}
+.field span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.field input {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.field input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.state {
+  color: var(--muted);
+  padding: 0.6rem 0;
+}
+.state--error {
+  color: var(--danger);
+  background: #fbeaea;
+  border: 1px solid #f0cccc;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.badge--admin {
+  background: #e7f2ee;
+  color: var(--primary);
+  border-color: #bfe0d4;
+}
+.badge--viewer {
+  background: #eef1f4;
+  color: var(--muted);
+}
+
+.status {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.status--available,
+.status--completed {
+  color: var(--available);
+}
+.status--occupied,
+.status--active {
+  color: var(--occupied);
+}
+
+/* --- Login --- */
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.login__card {
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem;
+}
+.login__title {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.login__subtitle {
+  margin: 0.2rem 0 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.login__hint {
+  margin: 1rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+.login .btn--primary {
+  width: 100%;
+}
+
+/* --- Uygulama iskeleti --- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar__brand {
+  font-weight: 700;
+}
+.topbar__nav {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+}
+.navlink {
+  font: inherit;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.navlink:hover {
+  background: var(--bg);
+}
+.navlink--active {
+  color: var(--primary);
+  background: #e7f2ee;
+  font-weight: 600;
+}
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+.topbar__username {
+  color: var(--muted);
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+.page__title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+/* --- Tablolar (Parça C) --- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.table th {
+  background: #fafbfc;
+  color: var(--muted);
+  font-weight: 600;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.table tr.clickable {
+  cursor: pointer;
+}
+.table tr.clickable:hover td {
+  background: #fafbfc;
+}
