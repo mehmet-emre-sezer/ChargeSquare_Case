@@ -37,6 +37,12 @@ spec:
                 configMapKeyRef:
                   name: chargesquare-config
                   key: STATION_SERVICE_URL
+            # JWT imzalama anahtarı (login token üretir; Station ile paylaşılır).
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: JWT_SECRET
           readinessProbe:
             httpGet:
               path: /health

@@ -31,6 +31,12 @@ spec:
                 secretKeyRef:
                   name: chargesquare-db
                   key: POSTGRES_PASSWORD
+            # JWT doğrulama anahtarı (Session ile paylaşılan aynı secret).
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: chargesquare-db
+                  key: JWT_SECRET
           readinessProbe:
             httpGet:
               path: /health

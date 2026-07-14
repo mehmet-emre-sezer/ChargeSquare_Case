@@ -10,7 +10,7 @@ Her satır bilinçli olarak verdiğim bir karar ve tek cümlelik gerekçesidir.
 
 | Karar | Seçim | Gerekçe |
 |---|---|---|
-| Dil / framework | Java 21 + Spring Boot 3.3.5 | Hem ChargeSquare'in ana stack'i hem de en temiz, en idiomatik yazabildiğim seçenek; böylece odak araçlarda değil domain'de kalıyor. |
+| Dil / framework | Java 21 + Spring Boot 3.3.5 | Spring Boot'u ilk kez bu projede kullandım; ChargeSquare'in ana stack'i olduğu için bilinçli seçtim ve öğrenmek istedim. Kararları framework'e değil temiz kod/katmanlı mimari ilkelerine dayandırdım. |
 | Servis sayısı | İki (Station + Session); cüzdan Session içinde | Önerilen varsayılan; dilimi küçük tutup emeği doğruluğa ayırıyor. Ayrı bir Wallet Service ikinci bir sınır gösterirdi ama burada kazancı az, maliyeti fazladan bir ağ çağrısı olurdu. |
 | Veritabanı | Tek paylaşımlı PostgreSQL, servis başına bir şema (`station`, `session`) | Açıkça çalışan en yalın çözüm; şema ayrımı temiz bir sahiplik sınırı verir ve iki servisin Flyway geçmişinin çakışmasını önler. |
 | Şema yönetimi | Flyway migration, `ddl-auto: validate` | Şema sıfırdan kurulur ve versiyonlanır; Hibernate şemayı değiştirmez, yalnızca eşlemeyi doğrular. Yeniden başlatmaya dayanır. |
@@ -61,11 +61,11 @@ Bu dilimde, case metninin istediği gibi, kurtarmayı kodlamak yerine anlatıyor
 
 ---
 
-## Güvenlik tasarımı (Stage 2 — yalnızca tasarım)
+## Güvenlik (Stage 2 — backend implement edildi, panel yazılmadı)
 
-Yönetim panelini yazmadım. Aşağıdaki, panelin önüne koyacağım güvenlik modeli — çalışan bir sistem olarak değil, tasarım olarak değerlendirilmek üzere.
+Stage 2'nin backend güvenlik tarafını **kodladım**; React yönetim panelini yazmadım. Aşağıdaki model hem uygulanan davranışı hem de arkasındaki gerekçeyi anlatır.
 
-**Kimlik doğrulama.** Küçük bir giriş ucu, doğru kimlik bilgisinde bir **JWT** üretir; bu token `Authorization: Bearer <token>` ile taşınır ve her istekte doğrulanır. Örnek (seed) demo kullanıcıları yeterli; gerçek kimlik bilgisi depoya konmaz. Token, kullanıcı ve rol bilgisini taşır ve konfigürasyondan gelen bir anahtarla imzalanır.
+**Kimlik doğrulama.** `POST /auth/login` ucu, doğru kimlik bilgisinde bir **JWT** üretir; bu token `Authorization: Bearer <token>` ile taşınır ve her iki serviste de doğrulanır. Demo kullanıcılar (`admin`/`admin123` → ADMIN, `viewer`/`viewer123` → VIEWER) config'ten gelir ve şifreleri BCrypt ile hash'lenir; gerçek kimlik bilgisi depoya konmaz. Token, kullanıcı ve rol bilgisini taşır ve `JWT_SECRET` ortam değişkeninden gelen paylaşılan HMAC anahtarıyla imzalanır — böylece her servis token'ı ekstra ağ çağrısı olmadan yerel doğrular.
 
 **Yetkilendirme — iki rol, sunucuda zorunlu kılınır.**
 
@@ -75,9 +75,9 @@ Yönetim panelini yazmadım. Aşağıdaki, panelin önüne koyacağım güvenlik
 | Oturum başlatma / durdurma, cüzdana yükleme | ✗ | ✓ |
 | Dahili `occupy` / `release` | ✗ | ✓ (servisler arası) |
 
-Roller **sunucuda** kontrol edilir, buton gizleyerek değil. Kimliği doğrulanmamış istek `401`, kimliği doğrulanmış ama yetkisi olmayan istek `403` alır. Rol, token'ın içinde durur (hızlıdır, her istekte ayrı sorgu gerektirmez); bunun bedeli, bir rolü geri almanın kısa token ömrü veya küçük bir kara liste gerektirmesidir — bu ölçekte kabul edilebilir.
+Roller **sunucuda** kontrol edilir, buton gizleyerek değil. Kimliği doğrulanmamış istek `401`, kimliği doğrulanmış ama yetkisi olmayan istek `403` alır. Rol, token'ın içinde durur (hızlıdır, her istekte ayrı sorgu gerektirmez); bunun bedeli, bir rolü geri almanın kısa token ömrü veya küçük bir kara liste gerektirmesidir — bu ölçekte kabul edilebilir. (Cüzdana yükleme ucu bu dilimde yazılmadı; eklendiğinde tablodaki gibi ADMIN altına girer.)
 
-**API koruması.** Okuma uçları geçerli bir token ister; yazma/yönetim uçları — özellikle de dahili `occupy`/`release` yolu — ayrıca `ADMIN` ister ve anonim ya da salt-görüntüleyici çağrıları reddeder. Panel girdiyi kendisi de doğrular, ama backend tekrar doğrular: arayüz atlanabilir, dolayısıyla istemci tarafı kontrollere asla güvenilmez. CORS yalnızca panelin adresine (origin) açıktır.
+**API koruması.** Okuma uçları geçerli bir token ister; yazma uçları (start/stop) ve dahili `occupy`/`release` yolu ayrıca `ADMIN` ister ve anonim ya da salt-görüntüleyici çağrıları reddeder — hepsi uygulandı ve testlerle doğrulandı. Backend her girdiyi kendisi doğrular; bir arayüz eklendiğinde bile client-side doğrulamaya güvenilmez, çünkü arayüz atlanıp API'ye doğrudan istek atılabilir. Bir SPA eklendiğinde CORS yalnızca panelin origin'ine açılacak şekilde sınırlanır (henüz panel yok).
 
 **Secret yönetimi.** JWT imzalama anahtarı ve veritabanı kimlik bilgileri ortamdan/konfigürasyondan (bir k8s `Secret`) gelir, asla depodan değil — depodaki [`k8s/secret.yaml`](k8s/secret.yaml) yalnızca örnek değerler içerir. Gerçek bir kurulumda bunlar bir secret yöneticisinden gelir (Sealed Secrets / External Secrets / bir bulut KMS).
 
