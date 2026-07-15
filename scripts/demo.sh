@@ -54,9 +54,23 @@ echo
 echo "ChargeSquare smoke test — $STATION / $SESSION"
 echo
 
-echo "1) Servisler ayakta mı"
-req GET "$STATION/health" ""; check "station /health" "$RESP_CODE" "200"
-req GET "$SESSION/health" ""; check "session /health" "$RESP_CODE" "200"
+# Compose yeni kalktıysa servislerin hazır olması birkaç saniye sürer; kısa süre bekleriz.
+wait_for_health() { # wait_for_health <base-url> <ad>
+  local i
+  for i in $(seq 1 40); do
+    if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$1/health" 2>/dev/null)" = "200" ]; then
+      ok "$2 /health → 200"
+      return 0
+    fi
+    sleep 2
+  done
+  bad "$2 /health → 80 sn içinde yanıt vermedi"
+  return 1
+}
+
+echo "1) Servisler ayakta mı (hazır olmalarını bekliyorum)"
+wait_for_health "$STATION" "station"
+wait_for_health "$SESSION" "session"
 if [ "$fail" -gt 0 ]; then
   echo; echo "Servisler hazır değil. Önce: docker compose up -d --build"; exit 1
 fi
@@ -80,6 +94,19 @@ if [ "$(jval "$RESP_BODY" status)" != "AVAILABLE" ]; then
   echo "     (ipucu: temiz durum için 'docker compose down -v && docker compose up -d --build')"
 fi
 
+# Cüzdanın mutlak bakiyesi ancak hiç oturum koşulmamışsa öngörülebilir (seed: 500.00).
+# Daha önce oturum varsa maliyeti yine sıkı doğrularız, mutlak bakiyeyi bilgi olarak geçeriz.
+req GET "$SESSION/users/$USER_ID/sessions" "$ADMIN"
+PRIOR_SESSIONS=$(echo "$RESP_BODY" | grep -o '"sessionId"' | wc -l | tr -d ' ')
+if [ "$PRIOR_SESSIONS" = "0" ]; then
+  ok "temiz stack (önceki oturum yok) → bakiye de doğrulanacak"
+  FRESH=1
+else
+  FRESH=0
+  echo "  • $PRIOR_SESSIONS önceki oturum var → mutlak bakiye kontrolü atlanır (maliyet yine doğrulanır)"
+  echo "    (sıfırlamak için: docker compose down -v && docker compose up -d --build)"
+fi
+
 echo
 echo "4) Oturum başlat"
 req POST "$SESSION/sessions" "$ADMIN" "{\"userId\":$USER_ID,\"connectorId\":$CONNECTOR_ID}"
@@ -98,7 +125,11 @@ req POST "$SESSION/sessions/$SESSION_ID/stop" "$ADMIN" "{\"energyKwh\":$ENERGY}"
 check "stop HTTP" "$RESP_CODE" "200"
 check "oturum durumu" "$(jval "$RESP_BODY" status)" "COMPLETED"
 check "maliyet (${ENERGY} × 8.50 + 2.00)" "$(jval "$RESP_BODY" cost)" "$EXPECTED_COST"
-check "cüzdan bakiyesi" "$(jval "$RESP_BODY" walletBalanceAfter)" "$EXPECTED_BALANCE"
+if [ "$FRESH" = "1" ]; then
+  check "cüzdan bakiyesi (500.00 - $EXPECTED_COST)" "$(jval "$RESP_BODY" walletBalanceAfter)" "$EXPECTED_BALANCE"
+else
+  echo "  • cüzdan bakiyesi: $(jval "$RESP_BODY" walletBalanceAfter) (önceki oturumlar nedeniyle mutlak değer doğrulanmadı)"
+fi
 
 req GET "$STATION/connectors/$CONNECTOR_ID" "$ADMIN"
 check "connector serbest kaldı" "$(jval "$RESP_BODY" status)" "AVAILABLE"

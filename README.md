@@ -2,7 +2,22 @@
 
 Bir EV şarj backend'inin uçtan uca çalışan küçük ama eksiksiz bir dilimi: **oturumu başlat → durdur → tarifeye göre fiyatla → cüzdandan tahsil et.** İki servis ve paylaşımlı bir PostgreSQL üzerine kurulu.
 
-Repoyu klonlayıp tek komutla ayağa kaldırabilir, tüm akışı `curl` ile deneyebilirsiniz.
+## Hızlı başlangıç
+
+```bash
+cp .env.example .env && docker compose up -d --build   # Postgres + iki servis
+./scripts/demo.sh                                      # tüm akışı koşar ve DOĞRULAR
+```
+
+`demo.sh` giriş yapar, oturum başlatır (201), faturalar (**108.25**), cüzdanı (**391.75**) ve connector'ın serbest kaldığını doğrular, guard'ları sınar. Hepsi geçerse çıkış kodu 0'dır. Aynı akışın elle `curl` hâli: [Uçtan uca örnek](#uçtan-uca-örnek).
+
+## Gereksinimler
+
+| Ne için | Gereken |
+|---|---|
+| **Uygulamayı çalıştırmak** (ana yol) | **Yalnızca Docker + Compose.** Java/Maven kurmaya gerek yok — derleme konteynerin içinde JDK 21 ile yapılır. |
+| Testleri lokalde koşmak | **JDK 21** (Maven gerekmez; `./mvnw` kendi indirir). Daha yeni JDK'lar Mockito nedeniyle çalışmaz — bkz. [Testler](#testler). |
+| Paneli çalıştırmak | **Node 18+** — bkz. [Panel](#panel-web). |
 
 ---
 
@@ -55,21 +70,26 @@ Spring Boot'u **ilk kez** bu projede kullandım; ChargeSquare'in ana stack'i old
 
 ---
 
-## Çalıştırma (tek komut)
+## Çalıştırma
+
+Tek komut [Hızlı başlangıç](#hızlı-başlangıç)'ta. Ayağa kalkınca kullanılan adresler:
+
+| Servis | Adres |
+|---|---|
+| station-service | `localhost:8081` |
+| session-service | `localhost:8082` |
+| PostgreSQL | `localhost:5432` |
+| Panel (ayrıca başlatılır) | `localhost:5173` |
+
+Hazır olduğunu doğrulamak için:
 
 ```bash
-cp .env.example .env          # yerel ayarlar; .env sürüm kontrolüne girmez
-docker compose up --build     # Postgres + iki servis
+curl localhost:8081/health    # {"status":"UP", ...}
+curl localhost:8082/health
 ```
 
-Dockerfile'lar `eclipse-temurin-21` ile derler; dolayısıyla çalışan uygulama, bilgisayarınızdaki Java sürümü ne olursa olsun JDK 21 kullanır.
-
-Servisler ayağa kalkınca sağlık kontrolü:
-
-```bash
-curl localhost:8081/health    # station-service
-curl localhost:8082/health    # session-service
-```
+Logları önplanda izlemek isterseniz `-d` olmadan çalıştırın: `docker compose up --build`.
+`.env` sürüm kontrolüne girmez; tüm ayarlar oradan okunur (bkz. [Konfigürasyon](#konfigürasyon)).
 
 ---
 
