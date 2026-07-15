@@ -17,7 +17,7 @@ Her satır bilinçli bir karar: neden bu case için uygun ve **bedeli ne**. Hiç
 | Servis iletişimi | Senkron REST (Session → Station) | İstenen gerçek ağ çağrısı; en az hareketli parça. Broker, saga ya da retry mekanizması yok — case metni bunları bu dilim için açıkça dışarıda bırakıyor. | Sıkı bağlılık: Station düşükse start/stop da düşer. Kesinti toleransı veya yüksek hacim gerekseydi settlement'ı `SessionCompleted` olayına taşırdım — bedeli eventual consistency ve idempotent tüketici zorunluluğu olurdu. |
 | Oturumda tarife | **Başlangıçta** kopyala (snapshot) | Fiyat oturumun ortasında değişse bile müşteri fişi taktığı andaki fiyatı öder; oturum kendi içinde tutarlı ve öngörülebilir kalır. | Yanlış girilmiş bir tarifeyi geriye dönük düzeltmek mümkün değil: snapshot dondurulmuş durumda. Düzeltme ihtiyacı olan bir üründe ayrı bir "yeniden fiyatlandırma" akışı gerekirdi. |
 | Para | `BigDecimal` + `NUMERIC(12,2)`, 2 basamağa `HALF_UP` | Para söz konusuysa asla kayan nokta kullanmam; yuvarlama kuralı tek bir yerde (`TariffSnapshot.costFor`) ve örnek hesapla (`108.25`) test edilmiş. | `BigDecimal` daha ayrıntılı yazım ister ve `equals` scale'e duyarlıdır (testlerde bu yüzden `isEqualByComparingTo` kullandım). Çok yüksek hacimli bir fiyatlandırma servisinde tam sayı minor birim (kuruş) daha hızlı ve tuzaksız olurdu. |
-| Yetersiz bakiye | Durdurmaya izin ver; cüzdan eksiye düşebilir | Enerji zaten fiziksel olarak verildi; durdurmayı reddetmek parayı geri getirmez, sadece connector'ı kilitli bırakır. Borç negatif bakiye olarak takip edilir. | Tahsil edilemeyecek borç riski doğar. Gerçek bir eMSP'de negatif bakiyeye tavan koyar, şarj başlamadan ön provizyon alır ve borç tahsilat akışı eklerdim. |
+| Yetersiz bakiye | Durdurmaya izin ver; cüzdan eksiye düşebilir | Enerji zaten fiziksel olarak verildi; durdurmayı reddetmek parayı geri getirmez, sadece connector'ı kilitli bırakır. Borç negatif bakiye olarak takip edilir. | Tahsil edilemeyecek borç riski doğar. Üretimde ön provizyon + canlı sayaçla bir **önleme** katmanı eklerdim; bunun bu dilimde neden mümkün olmadığı ve negatif bakiyenin o tasarımda bile neden gerektiği aşağıda ayrı bölümde. |
 | Bağımlılık erişilemezse | Hızlı hata ver, `503` | Temiz ve tekrar denenebilir bir hata, yarım kalmış retry mantığından iyidir (ayrıntı aşağıda). | Geçici bir kesintide kullanıcı hatayı görür; kısa bir retry bunu gizleyebilirdi. Ama idempotency olmadan retry çift faturalama demek — bu yüzden sıralamam net: önce idempotency, sonra retry. |
 | Eşzamanlılık | Connector durumu ve cüzdan üzerinde satır kilidi (pessimistic) | Ucuz ve yerel bir doğruluk garantisi: aynı anda gelen iki başlatma tek connector'ı birlikte kapamaz, eşzamanlı iki tahsilat bakiyeyi bozamaz. | Kilit tutulurken yapılan işler transaction'ı uzatır (bkz. aşağıdaki durdurma transaction sınırı notu). Yüksek eşzamanlılıkta optimistic locking + daha kısa transaction'lar tercih ederdim. |
 | Repo | Tek repo (monorepo) | Take-home için en pratiği: tek klon, tek `docker compose up`. | Servisler bağımsız versiyonlanıp deploy edilmiyor; CI her şeyi birlikte kurar. Ayrı ekipler ve ayrı release kadansı olsaydı multi-repo (veya en azından bağımsız pipeline'lar) gerekirdi. |
@@ -42,6 +42,22 @@ Sistemin her zaman doğru tutması gereken kurallar. Her birini veriye en yakın
 | Connector durumu ile oturum durumu tutarlıdır. | Durum değişimleri yalnızca start/stop yollarından geçer; Session, connector durumunu kendi tarafında ikinci bir kopya olarak tutmaz — tek kaynak Station'dır. |
 
 Veritabanı bu kuralların bir kısmını bağımsız olarak da destekler: `status` kolonlarında CHECK constraint, cüzdanda `user_id` unique, tarife tutarlarında negatif olmama kontrolü.
+
+---
+
+## Yetersiz bakiye — neden durdurmayı reddetmiyoruz
+
+Bakiye maliyeti karşılamıyorsa durdurmayı **reddetmiyoruz**: faturayı keser, cüzdanın eksiye düşmesine izin verir ve connector'ı yine serbest bırakırız.
+
+Gerekçe fiziksel: **elektrik zaten verilmiş.** Durdurmayı reddetmek enerjiyi geri getirmez; yalnızca oturumu `ACTIVE`, connector'ı `OCCUPIED` bırakır. Yani ödeme sorununu çözmediği gibi bir de donanımı kilitler ve sıradaki sürücüyü engeller. Borcu negatif bakiye olarak takip etmek, hem muhasebeyi dürüst tutar hem de istasyonu serbest bırakır.
+
+**Gerçek bir sistemde bunu önlerdim** — ama bu dilimde önleyemem, sebebiyle birlikte:
+
+Üretimde doğru kurgu katmanlı olurdu: şarj başlamadan **ön provizyon / kredi limiti** almak, oturum boyunca **canlı sayaç değerleriyle** tüketimi izlemek, kredi tükenmeden uygulamaya **bildirim + "bakiye yükle" akışı** göndermek, kullanıcı yüklerse oturumu sürdürmek, yüklemezse **uzaktan durdurma** komutu vermek. Bu, sürücünün de operasyonun da lehine.
+
+Bu dilimde uygulanabilir değil, çünkü **canlı tüketim verimiz yok**: enerji yalnızca stop isteğinin içinde bildiriliyor (sayaç simüle ediliyor). Ne kadar elektrik aktığını ancak oturum biterken öğreniyoruz — dolayısıyla "bakiye tükendi, şimdi durdur" diyebileceğim bir an hiç oluşmuyor. Bunu kurmak sayaç akışı + periyodik kontrol + yeni durum geçişleri demek olurdu; case metninin bu dilim için açıkça istemediği türden bir makine.
+
+**Önemli nüans:** o önleme katmanı kurulsa bile **negatif bakiye ihtiyacı ortadan kalkmaz.** "Kredi bitti" tespiti ile şarjın fiilen durması arasında gecikme vardır (durdurma komutu ağdan gidip gelir, araç o sırada birkaç saniye daha çeker); aradaki enerji zaten teslim edilmiş olur ve küçük bir aşım oluşur. Yani ön provizyon bir **önleme** katmanı, negatif bakiye ise **mutabakat** katmanıdır — biri diğerinin alternatifi değil. Bu dilimde yalnızca mutabakat katmanını kodladım; önleme katmanının yeri belli ve üstüne temiz şekilde eklenir.
 
 ---
 
