@@ -26,6 +26,25 @@ Durum makineleri ile başlat/durdur akışları şu diyagramlarda çizili: [`dia
 
 ---
 
+## Domain invariant'ları
+
+Sistemin her zaman doğru tutması gereken kurallar. Her birini veriye en yakın yerde korumaya çalıştım — kontrolün controller'a ya da çağırana bırakıldığı bir yer yok.
+
+| Invariant | Nerede korunuyor |
+|---|---|
+| Bir connector aynı anda yalnızca tek bir oturum tarafından tutulabilir. | `Connector.occupy()` yalnızca `AVAILABLE` iken izin verir; `findByIdForUpdate` satır kilidi eşzamanlı iki start'ın yarışmasını engeller. |
+| Dolu connector'da oturum başlatılamaz ve başarısız start hiçbir kayıt bırakmaz. | `SessionService.start()` önce Station'dan durumu okur, dolu ise `occupy` denenmeden 409 atar; oturum ancak occupy başarılı olduktan sonra yazılır. |
+| Bir oturumun tarifesi başladıktan sonra değişmez. | `TariffSnapshot` oturum satırına gömülüdür; stop yalnızca snapshot'ı okur, tarife için Station'a tekrar gitmez (testle doğrulanmıştır). |
+| ACTIVE olmayan oturum faturalanamaz; aynı oturum iki kez tahsil edilemez. | `Session.stop()` içindeki durum guard'ı (`SessionNotActiveException`) + stop yolunda oturum satır kilidi. |
+| Cüzdan yalnızca oturumun kendi maliyeti kadar ve yalnızca bir kez düşülür. | Tahsilat `Session.stop()`'un döndürdüğü maliyetle yapılır; `Wallet.debit()` kilitli satırda ve tamamlama ile aynı transaction'da çalışır. |
+| COMPLETED bir oturumun connector'ı serbest kalır. | Stop transaction'ı `release` başarılı olmadan commit etmez; başarısızsa her şey geri alınır ve oturum ACTIVE kalır. |
+| Para asla kayan noktayla temsil edilmez; maliyet 2 basamağa yuvarlanır. | `BigDecimal` + `NUMERIC(12,2)` kolonlar; yuvarlama tek yerde: `TariffSnapshot.costFor()`. |
+| Connector durumu ile oturum durumu tutarlıdır. | Durum değişimleri yalnızca start/stop yollarından geçer; Session, connector durumunu kendi tarafında ikinci bir kopya olarak tutmaz — tek kaynak Station'dır. |
+
+Veritabanı bu kuralların bir kısmını bağımsız olarak da destekler: `status` kolonlarında CHECK constraint, cüzdanda `user_id` unique, tarife tutarlarında negatif olmama kontrolü.
+
+---
+
 ## Bağımlılık erişilemediğinde
 
 Session Service, Station Service'e ulaşamazsa **hızlıca hata verir**: `503 STATION_UNAVAILABLE` ve net bir hata gövdesi — retry yok, fallback yok. RestClient'ın açık bağlanma/okuma zaman aşımları vardır; böylece yavaşlayan bir Station isteği süresiz askıda bırakamaz.

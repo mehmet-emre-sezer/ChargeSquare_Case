@@ -161,9 +161,9 @@ Tam güvenlik modeli ve gerekçeler için [DESIGN.md](DESIGN.md#güvenlik).
 ## Testler
 
 ```bash
-# servis başına (JDK 21 gerekir — aşağıdaki nota bakın)
-mvn -f station-service/pom.xml test
-mvn -f session-service/pom.xml test
+# Maven kurulu olmasına gerek yok (wrapper kendi indirir); JDK 21 gerekir — aşağıdaki nota bakın.
+(cd station-service && ./mvnw test)
+(cd session-service && ./mvnw test)
 ```
 
 21 test var: maliyet hesabı (örnek: `108.25`, artı yuvarlama durumları), başlat→durdur yaşam döngüsü (connector'ın serbest bırakıldığı dahil), tarife zamlansa bile oturumun kendi snapshot'ıyla faturalandığı, hatalı istekler (dolu connector'a başlatma 409, ikinci durdurma 409 + **cüzdanın tekrar düşülmediği**, eksik alan 400, bilinmeyen kayıt 404) ve kimlik doğrulama/yetki (login, token yok → 401, yetersiz rol → 403).
