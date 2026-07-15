@@ -6,21 +6,21 @@
 
 ## Tasarım kararları
 
-Her satır bilinçli olarak verdiğim bir karar ve tek cümlelik gerekçesidir.
+Her satır bilinçli bir karar: neden bu case için uygun ve **bedeli ne**. Hiçbir seçim bedelsiz değil; aşağıdaki son sütun neyi feda ettiğimi ve gerçek bir sistemde ne zaman farklı seçeceğimi söylüyor.
 
-| Karar | Seçim | Gerekçe |
-|---|---|---|
-| Dil / framework | Java 21 + Spring Boot 3.3.5 | Spring Boot'u ilk kez bu projede kullandım; ChargeSquare'in ana stack'i olduğu için bilinçli seçtim ve öğrenmek istedim. Kararları framework'e değil temiz kod/katmanlı mimari ilkelerine dayandırdım. |
-| Servis sayısı | İki (Station + Session); cüzdan Session içinde | Önerilen varsayılan; dilimi küçük tutup emeği doğruluğa ayırıyor. Ayrı bir Wallet Service ikinci bir sınır gösterirdi ama burada kazancı az, maliyeti fazladan bir ağ çağrısı olurdu. |
-| Veritabanı | Tek paylaşımlı PostgreSQL, servis başına bir şema (`station`, `session`) | Açıkça çalışan en yalın çözüm; şema ayrımı temiz bir sahiplik sınırı verir ve iki servisin Flyway geçmişinin çakışmasını önler. |
-| Şema yönetimi | Flyway migration, `ddl-auto: validate` | Şema sıfırdan kurulur ve versiyonlanır; Hibernate şemayı değiştirmez, yalnızca eşlemeyi doğrular. Yeniden başlatmaya dayanır. |
-| Servis iletişimi | Senkron REST (Session → Station) | İstenen gerçek ağ çağrısı. Broker, saga ya da retry mekanizması yok — case metni bunları bu dilim için açıkça dışarıda bırakıyor. |
-| Oturumda tarife | **Başlangıçta** kopyala (snapshot) | Fiyat oturumun ortasında değişse bile müşteri fişi taktığı andaki fiyatı öder; oturum kendi içinde tutarlı ve öngörülebilir kalır. |
-| Para | `BigDecimal` + `NUMERIC(12,2)`, 2 basamağa `HALF_UP` | Para söz konusuysa asla kayan nokta kullanmam; yuvarlama kuralı tek bir yerde (`TariffSnapshot.costFor`) ve örnek hesapla (`108.25`) test edilmiş. |
-| Yetersiz bakiye | Durdurmaya izin ver; cüzdan eksiye düşebilir | Enerji zaten verildiği için durdurmayı reddetmek yanlış olur — faturayı keser, bakiyenin eksiye inmesine izin verir ve connector'ı yine serbest bırakırız. |
-| Bağımlılık erişilemezse | Hızlı hata ver, `503` | Temiz ve tekrar denenebilir bir hata, yarım kalmış retry mantığından iyidir (ayrıntı aşağıda). |
-| Eşzamanlılık | Connector durumu ve cüzdan üzerinde satır kilidi | Ucuz ve yerel bir doğruluk garantisi: aynı anda gelen iki başlatma tek connector'ı birlikte kapamaz, eşzamanlı iki tahsilat bakiyeyi bozamaz. |
-| Repo | Tek repo (monorepo) | Take-home için en pratiği: tek klon, tek `docker compose up`. |
+| Karar | Seçim | Neden bu case için | Bedeli / ne zaman farklı seçerdim |
+|---|---|---|---|
+| Dil / framework | Java 21 + Spring Boot 3.3.5 | Spring Boot'u ilk kez bu projede kullandım; ChargeSquare'in ana stack'i olduğu için bilinçli seçtim ve öğrenmek istedim. Kararları framework'e değil temiz kod/katmanlı mimari ilkelerine dayandırdım. | Spring'e yeni olduğum için bazı yerler ekosistemi yıllardır kullanan birinin yazacağından daha uzun olabilir. Salt hız isteseydim daha önce kullandığım bir stack'i seçerdim; ama şirketin stack'inde çalışabildiğimi göstermek daha değerliydi. |
+| Servis sayısı | İki (Station + Session); cüzdan Session içinde | Önerilen varsayılan; dilimi küçük tutup emeği doğruluğa ayırıyor. Cüzdan yalnızca stop anında, aynı transaction içinde kullanılıyor — ayırmak kazanç sağlamazdı. | Cüzdan gerçek bir servis sınırı olarak modellenmiyor. Ayrı bir ekip sahiplenecek olsaydı ya da cüzdan başka ürünlerce de kullanılsaydı Wallet Service'e ayırırdım — bedeli fazladan bir ağ hop'u ve yeni bir kısmi hata senaryosu olurdu. |
+| Veritabanı | Tek paylaşımlı PostgreSQL, servis başına bir şema (`station`, `session`) | Açıkça çalışan en yalın çözüm; şema ayrımı temiz bir sahiplik sınırı verir ve iki servisin Flyway geçmişinin çakışmasını önler. | Gerçek izolasyon yok: bir servis veritabanını yorarsa diğeri de etkilenir ve bağımsız ölçekleme/yedekleme yapılamaz. Servisler ayrı ayrı ölçeklenip deploy edilecekse servis başına ayrı veritabanına geçerdim. |
+| Şema yönetimi | Flyway migration, `ddl-auto: validate` | Şema sıfırdan kurulur ve versiyonlanır; Hibernate şemayı değiştirmez, yalnızca eşlemeyi doğrular. Yeniden başlatmaya dayanır. | Her şema değişikliği elle migration yazmayı gerektirir; hızlı prototipte auto-DDL daha çevik olurdu. Ama auto-DDL üretimde veri kaybettirebileceği için bu bedeli bilerek kabul ettim. |
+| Servis iletişimi | Senkron REST (Session → Station) | İstenen gerçek ağ çağrısı; en az hareketli parça. Broker, saga ya da retry mekanizması yok — case metni bunları bu dilim için açıkça dışarıda bırakıyor. | Sıkı bağlılık: Station düşükse start/stop da düşer. Kesinti toleransı veya yüksek hacim gerekseydi settlement'ı `SessionCompleted` olayına taşırdım — bedeli eventual consistency ve idempotent tüketici zorunluluğu olurdu. |
+| Oturumda tarife | **Başlangıçta** kopyala (snapshot) | Fiyat oturumun ortasında değişse bile müşteri fişi taktığı andaki fiyatı öder; oturum kendi içinde tutarlı ve öngörülebilir kalır. | Yanlış girilmiş bir tarifeyi geriye dönük düzeltmek mümkün değil: snapshot dondurulmuş durumda. Düzeltme ihtiyacı olan bir üründe ayrı bir "yeniden fiyatlandırma" akışı gerekirdi. |
+| Para | `BigDecimal` + `NUMERIC(12,2)`, 2 basamağa `HALF_UP` | Para söz konusuysa asla kayan nokta kullanmam; yuvarlama kuralı tek bir yerde (`TariffSnapshot.costFor`) ve örnek hesapla (`108.25`) test edilmiş. | `BigDecimal` daha ayrıntılı yazım ister ve `equals` scale'e duyarlıdır (testlerde bu yüzden `isEqualByComparingTo` kullandım). Çok yüksek hacimli bir fiyatlandırma servisinde tam sayı minor birim (kuruş) daha hızlı ve tuzaksız olurdu. |
+| Yetersiz bakiye | Durdurmaya izin ver; cüzdan eksiye düşebilir | Enerji zaten fiziksel olarak verildi; durdurmayı reddetmek parayı geri getirmez, sadece connector'ı kilitli bırakır. Borç negatif bakiye olarak takip edilir. | Tahsil edilemeyecek borç riski doğar. Gerçek bir eMSP'de negatif bakiyeye tavan koyar, şarj başlamadan ön provizyon alır ve borç tahsilat akışı eklerdim. |
+| Bağımlılık erişilemezse | Hızlı hata ver, `503` | Temiz ve tekrar denenebilir bir hata, yarım kalmış retry mantığından iyidir (ayrıntı aşağıda). | Geçici bir kesintide kullanıcı hatayı görür; kısa bir retry bunu gizleyebilirdi. Ama idempotency olmadan retry çift faturalama demek — bu yüzden sıralamam net: önce idempotency, sonra retry. |
+| Eşzamanlılık | Connector durumu ve cüzdan üzerinde satır kilidi (pessimistic) | Ucuz ve yerel bir doğruluk garantisi: aynı anda gelen iki başlatma tek connector'ı birlikte kapamaz, eşzamanlı iki tahsilat bakiyeyi bozamaz. | Kilit tutulurken yapılan işler transaction'ı uzatır (bkz. aşağıdaki durdurma transaction sınırı notu). Yüksek eşzamanlılıkta optimistic locking + daha kısa transaction'lar tercih ederdim. |
+| Repo | Tek repo (monorepo) | Take-home için en pratiği: tek klon, tek `docker compose up`. | Servisler bağımsız versiyonlanıp deploy edilmiyor; CI her şeyi birlikte kurar. Ayrı ekipler ve ayrı release kadansı olsaydı multi-repo (veya en azından bağımsız pipeline'lar) gerekirdi. |
 
 Durum makineleri ile başlat/durdur akışları şu diyagramlarda çizili: [`diagrams/state-machines.md`](diagrams/state-machines.md), [`diagrams/start-flow.md`](diagrams/start-flow.md) ve [`diagrams/stop-flow.md`](diagrams/stop-flow.md).
 
@@ -31,6 +31,14 @@ Durum makineleri ile başlat/durdur akışları şu diyagramlarda çizili: [`dia
 Session Service, Station Service'e ulaşamazsa **hızlıca hata verir**: `503 STATION_UNAVAILABLE` ve net bir hata gövdesi — retry yok, fallback yok. RestClient'ın açık bağlanma/okuma zaman aşımları vardır; böylece yavaşlayan bir Station isteği süresiz askıda bırakamaz.
 
 Durdurmada `release` çağrısı, cüzdandan tahsilat yapan ve oturumu tamamlayan *aynı transaction'ın içinde* yapılır. Station erişilemezse transaction'ın tamamı geri alınır: hiçbir tahsilat olmaz, oturum `ACTIVE` kalır, connector `OCCUPIED` kalır ve çağıran, gönül rahatlığıyla tekrar deneyebileceği bir `503` alır. Böylece bir bağımlılık kesintisi, yarım kalmış bir durdurma yerine tutarlı ve tekrar denenebilir bir duruma dönüşür.
+
+### Durdurmada transaction sınırı — bilinçli bir ödünleşme
+
+Bu tercihin bir bedeli var ve saklamak istemem: `release` bir **ağ çağrısı** ve onu transaction'ın içinde yaptığım için, çağrı sürerken oturum ve cüzdan satırlarının kilidi ile bir veritabanı bağlantısı açık kalıyor. Station yavaşlarsa kilitler o kadar uzun tutulur; bunu sınırlayan tek şey RestClient'ın zaman aşımları (2 sn bağlanma / 5 sn okuma).
+
+Alternatifi düşündüm: önce parasal işi commit'leyip (`COMPLETED` + tahsilat), `release`'i transaction dışında elden geldiğince çağırmak. Bu, kilit süresini en aza indirir; ama `release` başarısız olursa **oturum faturalanmış olmasına rağmen connector kilitli kalır** ve bunu ancak aşağıdaki temizlik işi toparlar.
+
+İkisi arasında şu nedenle bu tarafı seçtim: bu ölçekte (tek istasyon, düşük eşzamanlılık, zaman aşımlarıyla sınırlı çağrı) **tutarlılık, kilit süresinden daha değerli** — kullanıcı yanlışlıkla faturalanmıyor ve elde kalıntı durum kalmıyor. Yüksek eşzamanlılıkta tercihi tersine çevirirdim: parayı kısa bir transaction'da atomik olarak yaz, `release`'i dışarıda yap ve tutarlılığı uzlaştırıcı (reconciler) işe bırak.
 
 ---
 
