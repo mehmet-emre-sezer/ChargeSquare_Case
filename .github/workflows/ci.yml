@@ -29,3 +29,28 @@ jobs:
 
       - name: Build session-service image
         run: docker build -t chargesquare/session-service:ci session-service
+
+  # Servisler arası gerçek uçtan uca test: iki servis de konteynerde ayağa kalkar,
+  # akış gerçek HTTP üzerinden sürülür ve beklenen değerler doğrulanır (mock yok).
+  e2e:
+    name: Uçtan uca (iki servis, gerçek HTTP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Yerel ayarları hazırla
+        run: cp .env.example .env
+
+      - name: Servisleri ayağa kaldır
+        run: docker compose up -d --build
+
+      - name: Akışı doğrula (start → stop → fatura → cüzdan → release + guard'lar)
+        run: ./scripts/demo.sh
+
+      - name: Hata durumunda servis loglarını göster
+        if: failure()
+        run: docker compose logs --tail=120
+
+      - name: Temizle
+        if: always()
+        run: docker compose down -v
