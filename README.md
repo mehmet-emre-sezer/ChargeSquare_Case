@@ -93,23 +93,27 @@ TOKEN=$(curl -s -X POST localhost:8082/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin123"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
 
-# 1) BAŞLAT — 201 döner, connector OCCUPIED olur, tarifenin kopyası alınır
+# 1) BAŞLAT — 201 döner, connector OCCUPIED olur, tarifenin kopyası alınır.
+#    Oturum id'sini yakalıyoruz; böylece adımlar kaçıncı oturum olursa olsun çalışır.
+SESSION_ID=$(curl -s -X POST localhost:8082/sessions \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"userId":7,"connectorId":10}' | sed -E 's/.*"sessionId":([0-9]+).*/\1/')
+echo "oturum: $SESSION_ID"
+
+# 2) HATALI DURUM — connector şimdi dolu; aynı connector'a başlatma 409 döner, oturum yaratılmaz
 curl -X POST localhost:8082/sessions \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"userId":7,"connectorId":10}'
 
-# 2) DURDUR — maliyet = 12.5 * 8.50 + 2.00 = 108.25, cüzdan 500.00 -> 391.75
-curl -X POST localhost:8082/sessions/100/stop \
+# 3) DURDUR — maliyet = 12.5 × 8.50 + 2.00 = 108.25
+#    (temiz bir stack'te cüzdan 500.00 -> 391.75; daha önce oturum koştuysan bakiye daha düşük olur)
+curl -X POST localhost:8082/sessions/$SESSION_ID/stop \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"energyKwh":12.5}'
 
-# 3) Makbuzu geri oku
-curl localhost:8082/sessions/100 -H "Authorization: Bearer $TOKEN"
-
-# 4) Hatalı durum — artık dolu olan connector'a başlatma 409 döner, oturum yaratmaz
-curl -X POST localhost:8082/sessions \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"userId":7,"connectorId":10}'
+# 4) Makbuzu geri oku — COMPLETED; connector yeniden AVAILABLE olur
+curl localhost:8082/sessions/$SESSION_ID -H "Authorization: Bearer $TOKEN"
+curl localhost:8081/connectors/10 -H "Authorization: Bearer $TOKEN"
 ```
 
 Bütün hatalar aynı gövde biçimini kullanır: `{ "error": "KOD", "message": "..." }`.
