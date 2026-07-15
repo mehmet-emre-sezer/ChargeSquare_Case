@@ -1,5 +1,6 @@
 package com.chargesquare.session;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.chargesquare.session.client.ConnectorSnapshot;
 import com.chargesquare.session.client.StationClient;
+import com.chargesquare.session.repository.WalletRepository;
 import com.chargesquare.session.security.JwtService;
 import com.jayway.jsonpath.JsonPath;
 import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
@@ -47,6 +49,9 @@ class SessionFlowTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private WalletRepository wallets;
 
     @MockBean
     private StationClient stationClient;
@@ -96,10 +101,13 @@ class SessionFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.cost").value(108.25));
+
+        // Connector gerçekten serbest bırakıldı (Station'a release çağrısı gitti).
+        verify(stationClient).release(10L);
     }
 
     @Test
-    void stopTwice_secondReturns409() throws Exception {
+    void stopTwice_secondReturns409_andWalletIsNotChargedAgain() throws Exception {
         stubAvailableConnector();
         long sessionId = startSession();
 
@@ -109,13 +117,37 @@ class SessionFlowTest {
                         .content("{\"energyKwh\":12.5}"))
                 .andExpect(status().isOk());
 
-        // İkinci stop artık ACTIVE olmadığı için reddedilir; ikinci kez faturalanmaz.
+        // İkinci stop artık ACTIVE olmadığı için reddedilir.
         mockMvc.perform(post("/sessions/" + sessionId + "/stop")
                         .header(HttpHeaders.AUTHORIZATION, adminAuth)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"energyKwh\":5}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("SESSION_NOT_ACTIVE"));
+
+        // Asıl garanti: cüzdan ikinci kez düşülmedi (500.00 - 108.25 = 391.75 olarak kaldı).
+        assertThat(wallets.findByUserIdForUpdate(7L).orElseThrow().getBalance())
+                .isEqualByComparingTo("391.75");
+    }
+
+    @Test
+    void tariffChangedAfterStart_sessionIsStillBilledWithItsSnapshot() throws Exception {
+        stubAvailableConnector();
+        long sessionId = startSession();
+
+        // Oturum sürerken Station'daki tarife zamlanıyor.
+        when(stationClient.getConnector(anyLong())).thenReturn(
+                new ConnectorSnapshot("OCCUPIED",
+                        new ConnectorSnapshot.TariffView(new BigDecimal("20.00"), new BigDecimal("5.00"), "TRY")));
+
+        // Fatura başlangıçtaki snapshot'tan hesaplanır: 12.5 × 8.50 + 2.00 = 108.25.
+        // Yeni tarife okunsaydı 12.5 × 20.00 + 5.00 = 255.00 olurdu.
+        mockMvc.perform(post("/sessions/" + sessionId + "/stop")
+                        .header(HttpHeaders.AUTHORIZATION, adminAuth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"energyKwh\":12.5}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cost").value(108.25));
     }
 
     @Test

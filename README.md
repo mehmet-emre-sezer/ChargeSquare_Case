@@ -158,7 +158,7 @@ mvn -f station-service/pom.xml test
 mvn -f session-service/pom.xml test
 ```
 
-20 test var: maliyet hesabı (örnek: `108.25`, artı yuvarlama durumları), başlat→durdur yaşam döngüsü, hatalı istekler (dolu connector'a başlatma 409, ikinci durdurma 409, eksik alan 400, bilinmeyen kayıt 404) ve kimlik doğrulama/yetki (login, token yok → 401, yetersiz rol → 403).
+21 test var: maliyet hesabı (örnek: `108.25`, artı yuvarlama durumları), başlat→durdur yaşam döngüsü (connector'ın serbest bırakıldığı dahil), tarife zamlansa bile oturumun kendi snapshot'ıyla faturalandığı, hatalı istekler (dolu connector'a başlatma 409, ikinci durdurma 409 + **cüzdanın tekrar düşülmediği**, eksik alan 400, bilinmeyen kayıt 404) ve kimlik doğrulama/yetki (login, token yok → 401, yetersiz rol → 403).
 
 - Testler **gömülü ama gerçek bir PostgreSQL** (zonky) üzerinde koşar; yani `mvn test` için **Docker gerekmez.** Migration'lar üretimdekiyle birebir aynı çalışır.
 - Testleri koşmak için **JDK 21 şarttır:** Mockito'nun kullandığı byte-code kütüphanesi daha yeni JDK sürümlerini desteklemiyor. Docker/Compose yolu bundan etkilenmez (içeride zaten 21 ile derler). CI de JDK 21'e sabitlenmiştir.
