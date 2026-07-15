@@ -26,6 +26,19 @@ Durum makineleri ile başlat/durdur akışları şu diyagramlarda çizili: [`dia
 
 ---
 
+## Durum geçişleri
+
+Tüm yaşam döngüsü bu dört satır. Reddedilen her geçiş **hiçbir değişiklik bırakmaz** — yarım durum yok.
+
+| Mevcut durum | İşlem | Sonuç |
+|---|---|---|
+| Connector `AVAILABLE` | Başlat | Connector `OCCUPIED` + `ACTIVE` oturum (tarife snapshot'lanır) |
+| Connector `OCCUPIED` | Başlat | `409` — oturum yaratılmaz, connector'a dokunulmaz |
+| Oturum `ACTIVE` | Durdur | `COMPLETED` + cüzdan tahsilatı + connector `AVAILABLE` |
+| Oturum `COMPLETED` | Durdur | `409` — cüzdan tekrar düşülmez, hiçbir değişiklik olmaz |
+
+---
+
 ## Domain invariant'ları
 
 Sistemin her zaman doğru tutması gereken kurallar. Her birini veriye en yakın yerde korumaya çalıştım — kontrolün controller'a ya da çağırana bırakıldığı bir yer yok.

@@ -159,7 +159,26 @@ Bütün hatalar aynı gövde biçimini kullanır: `{ "error": "KOD", "message": 
 | GET | `/sessions/{id}` | VIEWER/ADMIN | Tek bir oturumu oku |
 | GET | `/users/{userId}/sessions` | VIEWER/ADMIN | Bir kullanıcının oturumları |
 
-`/health` uçları herkese açıktır. Durum kodları: `401` token yok/geçersiz · `403` yetersiz rol · `404` bilinmeyen connector/oturum · `409` dolu connector / aktif olmayan (veya ikinci kez) durdurma · `400` geçersiz istek · `503` Station Service'e ulaşılamıyor.
+`/health` uçları herkese açıktır.
+
+### Hata durumları ve yan etkileri
+
+Hatalarda **ne olduğu kadar ne olmadığı** da önemli — kısmi durum bırakmayız:
+
+| Durum | HTTP | Kod | Yan etki |
+|---|---|---|---|
+| Bilinmeyen connector'a başlatma | `404` | `CONNECTOR_NOT_FOUND` | Oturum yaratılmaz; connector'a dokunulmaz |
+| Dolu connector'a başlatma | `409` | `CONNECTOR_OCCUPIED` | Oturum yaratılmaz; connector'a dokunulmaz |
+| Cüzdanı olmayan kullanıcı | `404` | `WALLET_NOT_FOUND` | Oturum yaratılmaz; Station'a hiç gidilmez |
+| Eksik/geçersiz alan (`userId` yok, negatif `energyKwh`) | `400` | `VALIDATION_ERROR` | Hiçbir değişiklik olmaz |
+| Bilinmeyen oturumu durdurma | `404` | `SESSION_NOT_FOUND` | Hiçbir değişiklik olmaz |
+| Aktif olmayan oturumu durdurma (ikinci stop) | `409` | `SESSION_NOT_ACTIVE` | **Cüzdan ikinci kez düşülmez**; connector durumu değişmez |
+| Station'a ulaşılamıyor — başlatma | `503` | `STATION_UNAVAILABLE` | Oturum yaratılmaz |
+| Station'a ulaşılamıyor — durdurma | `503` | `STATION_UNAVAILABLE` | **Tüm işlem geri alınır**: tahsilat olmaz, oturum `ACTIVE` kalır, tekrar denenebilir |
+| Token yok / geçersiz | `401` | `UNAUTHORIZED` | Hiçbir değişiklik olmaz |
+| Yetersiz rol (VIEWER yazma denemesi) | `403` | `FORBIDDEN` | Hiçbir değişiklik olmaz |
+
+Bu satırların çoğu testlerle ve [`scripts/demo.sh`](scripts/demo.sh) ile doğrulanır.
 
 ---
 
@@ -233,6 +252,21 @@ Bunu canlı bir cluster üzerinde çalıştıramadım; manifestleri geçerli YAM
 **Kodlandı:** tüm başlat → durdur → faturala → tahsil et akışı, bütün durum kontrolleri, kayan noktadan kaçınan maliyet hesabı, gerçek Session → Station ağ çağrısı, gerçek veritabanı kalıcılığı + başlangıç verisi, JWT tabanlı kimlik doğrulama + rol tabanlı erişim (Stage 2 backend), React yönetim paneli (Stage 2 frontend), testler, Dockerfile'lar + Compose, Kubernetes manifestleri ve CI.
 
 **Yalnızca yazıya döküldü** ([DESIGN.md](DESIGN.md) içinde — case metninin bizden *çözmemizi değil, üzerine düşünüp anlatmamızı* istediği asıl zor dağıtık sistem konuları): tekrar denemelerde idempotency ve kilitli kalan connector'ın kurtarılması.
+
+## Bilinen eksikler
+
+Kapsamı bilinçli olarak kestiğim yerler — saklamak yerine yazıyorum:
+
+| Eksik | Durum / neden |
+|---|---|
+| Servisler arası **JUnit** integration testi | JUnit testlerinde Station mock'lanır. Bunun yerine [`scripts/demo.sh`](scripts/demo.sh) akışı **iki gerçek servise, gerçek HTTP üzerinden** sürüyor ve **CI'da her push'ta** koşuyor — kapsam farklı bir katmanda karşılanıyor. |
+| İdempotent stop (idempotency key) | Kodlanmadı. Durum guard'ı çift tahsilatı zaten engelliyor (409, testli); anahtarla nasıl tam idempotent yapılacağı DESIGN'da anlatıldı — case metni bunu "yaz, kurma" diyor. |
+| Kilitli connector temizlik job'ı (reconciler) | Kodlanmadı; tasarımı ve trade-off'ları DESIGN'da. Aynı gerekçe. |
+| Cüzdana yükleme (top-up) ucu | Yok. RBAC tablosunda yeri belli; eklenirse ADMIN altına girer. |
+| Bakiye tükenince otomatik durdurma | Yok — **canlı sayaç verimiz olmadığı için mümkün değil** (enerji yalnızca stop'ta bildiriliyor). Üretimde nasıl kurgulanacağı DESIGN'da. |
+| OpenAPI/Swagger | Eklenmedi; API yüzeyi küçük ve README'de tablo hâlinde. |
+| Rezervasyon (`RESERVED`), zaman bazlı tarife | Bilinçli olarak yapılmadı — yeni durum ve edge case getirir, çekirdeğe değer katmaz. |
+| Kubernetes canlı cluster'da denenmedi | Manifestler geçerli YAML ve doğru kaynak türleri olarak doğrulandı; `kubectl --dry-run` çalışan cluster ister. Bkz. [Kubernetes](#kubernetes). |
 
 ## Opsiyonel / Stage 2
 
