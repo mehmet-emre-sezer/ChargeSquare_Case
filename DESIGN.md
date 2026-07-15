@@ -53,7 +53,7 @@ Gerekçe fiziksel: **elektrik zaten verilmiş.** Durdurmayı reddetmek enerjiyi 
 
 **Gerçek bir sistemde bunu önlerdim** — ama bu dilimde önleyemem, sebebiyle birlikte:
 
-Üretimde doğru kurgu katmanlı olurdu: şarj başlamadan **ön provizyon / kredi limiti** almak, oturum boyunca **canlı sayaç değerleriyle** tüketimi izlemek, kredi tükenmeden uygulamaya **bildirim + "bakiye yükle" akışı** göndermek, kullanıcı yüklerse oturumu sürdürmek, yüklemezse **uzaktan durdurma** komutu vermek. Bu, sürücünün de operasyonun da lehine.
+Üretimde doğru kurgu katmanlı olurdu: şarj başlamadan **ön provizyon / kredi limiti** almak, oturum boyunca **canlı sayaç değerleriyle** tüketimi izlemek, kredi tükenmeden uygulamaya **bildirim + "bakiye yükle" akışı** gönderilir, kullanıcı yüklerse oturumu sürdürülür, yüklemezse **uzaktan durdurma** komutu verilir. Bu, sürücünün de operasyonun da lehine.
 
 Bu dilimde uygulanabilir değil, çünkü **canlı tüketim verimiz yok**: enerji yalnızca stop isteğinin içinde bildiriliyor (sayaç simüle ediliyor). Ne kadar elektrik aktığını ancak oturum biterken öğreniyoruz — dolayısıyla "bakiye tükendi, şimdi durdur" diyebileceğim bir an hiç oluşmuyor. Bunu kurmak sayaç akışı + periyodik kontrol + yeni durum geçişleri demek olurdu; case metninin bu dilim için açıkça istemediği türden bir makine.
 
