@@ -77,7 +77,15 @@ curl localhost:8082/health    # session-service
 
 Başlangıç verisi: `10` numaralı connector `AVAILABLE`, tarife `8.50 TRY/kWh + 2.00` başlangıç ücreti, `7` numaralı kullanıcının bakiyesi `500.00`.
 
-Uçlar korumalıdır (bkz. [Kimlik doğrulama](#kimlik-doğrulama)), o yüzden önce giriş yapıp token'ı isteklere ekliyoruz.
+**En hızlı yol — tüm akışı tek komutla doğrulayın:**
+
+```bash
+./scripts/demo.sh
+```
+
+Bu script giriş yapar, connector'ın boş olduğunu görür, oturum başlatır (201), connector'ın dolduğunu doğrular, durdurup faturalar (**108.25**), cüzdanı kontrol eder (**391.75**), connector'ın serbest kaldığını görür ve guard'ları sınar (ikinci durdurma 409, bilinmeyen connector 404, eksik alan 400, token'sız 401, viewer 403). Beklenen değerleri **doğrular**; bir şey tutmazsa çıkış kodu sıfır değildir.
+
+Aşağıdaki adımlar aynı akışı elle gösterir. Uçlar korumalıdır (bkz. [Kimlik doğrulama](#kimlik-doğrulama)), o yüzden önce giriş yapıp token'ı isteklere ekliyoruz.
 
 ```bash
 # 0) GİRİŞ — admin olarak token al
@@ -242,6 +250,7 @@ Panelin backend adresleri `web/.env.example`'daki `VITE_STATION_URL` / `VITE_SES
 station-service/   # istasyonlar, connector'lar, tarifeler (:8081)
 session-service/   # oturumlar, cüzdan, başlat/durdur yaşam döngüsü (:8082)
 web/               # React (Vite) operasyon paneli (:5173)
+scripts/demo.sh    # uçtan uca smoke test (beklenen değerleri doğrular)
 k8s/               # Kubernetes manifestleri
 diagrams/          # Mermaid diyagramları (mimari + akışlar)
 docker-compose.yml # tek komutla yerel çalıştırma
